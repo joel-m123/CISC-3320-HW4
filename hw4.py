@@ -14,7 +14,7 @@ def multi_producer(process_buffer):
     for item in range(10):
         #Wait if the buffer is full, then add an item to the buffer.
         process_buffer.put(item)
-        print(f"Produced: {item}")
+        print(f"Produced item: {item}. Buffer size: {process_buffer.qsize()}")
     
 def multi_consumer(process_buffer):
     while True:
@@ -25,7 +25,7 @@ def multi_consumer(process_buffer):
             print("Received stop signal - exiting.")
             break
 
-        print(f"Consumed: {item}")
+        print(f"Consumed item: {item}. Buffer size: {process_buffer.qsize()}")
 
 #Basic producer adding items to the buffer with condtions.
 def thread_producer():
@@ -42,7 +42,7 @@ def thread_producer():
             #Add an item to the buffer and 
             #notify the consumers that an item is available.
             buffer.append(item)
-            print(f"Produced: {item}. Buffer size: {len(buffer)}")
+            print(f"Produced item: {item}. Buffer size: {len(buffer)}")
             condition.notify_all()
 
 #Basic consumer removing items from the buffer.
@@ -62,7 +62,7 @@ def thread_consumer():
             if item is None:
                 print("Received stop signal - exiting.")
             else:
-                print(f"Consumed: {item}. Buffer size: {len(buffer)}")
+                print(f"Consumed item: {item}. Buffer size: {len(buffer)}")
             
             condition.notify_all()
 
@@ -114,8 +114,30 @@ def run_multiprocessing():
     #Multiprocessing queue to hold data for processing.
     process_buffer = multiprocessing.Queue(maxsize=BUFFER_CAPACITY)
 
+    #Creating a number of consumer and producers
+    for i in range(num_prod_and_cons):
+        multi_producers.append(multiprocessing.Process(target=multi_producer, args=(process_buffer,)))
+        multi_consumers.append(multiprocessing.Process(target=multi_consumer, args=(process_buffer,)))
+
+    for process in multi_producers + multi_consumers:
+        process.start()
+
+    for process in multi_producers:
+        process.join()
+
+    #Send one stop signal per consumer
+    for process in multi_consumers:
+        process_buffer.put(None)
+
+    for process in multi_consumers:
+        process.join()
+
+    print("All multiprocessing workers finished.")
+
+
 def main():
     run_threading()
+    run_multiprocessing()
 
 
 if __name__ == "__main__":
