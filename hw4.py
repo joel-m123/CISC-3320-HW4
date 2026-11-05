@@ -2,12 +2,11 @@ import threading
 
 #Bounded buffer to store data.
 buffer = []
-buffer_capacity = 10
+BUFFER_CAPACITY = 10
 
 #Lock + wait condition to synchronize 
 #producer and consumer threads.
 condition = threading.Condition() 
-ready = False
 
 #Basic producer adding items to the buffer with condtions.
 def producer():
@@ -17,7 +16,7 @@ def producer():
         with condition:
             #Check if the buffer is full, 
             #if so wait until the consumer consumes an item.
-            while len(buffer) >= buffer_capacity:
+            while len(buffer) >= BUFFER_CAPACITY:
                 print("Buffer is full, waiting.")
                 condition.wait()
 
@@ -29,12 +28,19 @@ def producer():
 
 #Basic consumer removing items from the buffer.
 def consumer():
-    while len(buffer) > 0:
-        if len(buffer) > 0:
+    for _ in range(10):
+        with condition:
+            #While buffer is empty, cosumer waits 
+            #for the producer to produce an item. 
+            while len(buffer) == 0:
+                print("Buffer is empty, waiting.")
+                condition.wait()
+
+            #Remove an item from the buffer and 
+            #notify the producer that space is available.
             item = buffer.pop(0)
-            print(f'Consumed: {item}')
-        else:
-            print('Buffer is empty.')
+            print(f"Consumed: {item}")
+            condition.notify()
 
 
 def main():
@@ -47,7 +53,7 @@ def main():
     producer_thread.start()
     consumer_thread.start()
 
-    #Main() waits for function to finsih executing
+    #Main() waits for function to finish executing
     #before continuing.
     producer_thread.join()
     consumer_thread.join()
