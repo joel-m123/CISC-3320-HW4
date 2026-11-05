@@ -1,5 +1,7 @@
+import queue
 import threading
 import multiprocessing
+import time
 
 #Bounded buffer to store data.
 buffer = []
@@ -12,8 +14,13 @@ condition = threading.Condition()
 def multi_producer(process_buffer):
     #Basic producer adding items to the buffer.
     for item in range(10):
-        #Wait if the buffer is full, then add an item to the buffer.
-        process_buffer.put(item)
+        try:
+            process_buffer.put_nowait(item)
+        except queue.Full:
+            #Wait if the buffer is full, then add an item to the buffer.
+            process_buffer.put(item)
+            print("Producer resumed.")
+
         print(f"Produced item: {item}. Buffer size: {process_buffer.qsize()}")
     
 def multi_consumer(process_buffer):
@@ -33,11 +40,17 @@ def thread_producer():
         #Acquire a lock to ensure that only one 
         #thread can access the buffer at a time.
         with condition:
+            was_waiting = False
+
             #Check if the buffer is full, 
             #if so wait until the consumer consumes an item.
             while len(buffer) >= BUFFER_CAPACITY:
                 print("Buffer full - waiting.")
+                was_waiting = True
                 condition.wait()
+            
+            if was_waiting:
+                print("Producer resumed.")
 
             #Add an item to the buffer and 
             #notify the consumers that an item is available.
@@ -70,11 +83,13 @@ def thread_consumer():
             break
 
 def run_threading():
+    num_prod_and_cons = int(input("(THREADING)Enter the number of producers and consumers: "))
+
+    start_time = time.perf_counter()
+
     #Create lists to hold producer and consumer threads.
     thread_producers = []
     thread_consumers = []
-
-    num_prod_and_cons = int(input("Enter the number of producers and consumers: "))
 
     #Creating a number of consumer and producer
     #threads pointing to the respective functions.
@@ -101,15 +116,20 @@ def run_threading():
 
     for thread in thread_consumers:
         thread.join()
+
+    execution_time = time.perf_counter() - start_time
     
     print(f"All producers finished, all consumers finished, {len(buffer)} items left.")
+    print(f"Threading execution time: {execution_time:.4f} seconds")
 
 def run_multiprocessing():
+    num_prod_and_cons = int(input("(MULTIPROCESSING) Enter the number of producers and consumers: "))
+
+    start_time = time.perf_counter()
+
     #Create lists for multiprocessing workers
     multi_producers = []
     multi_consumers = []
-
-    num_prod_and_cons = int(input("Enter the number of producers and consumers: "))
 
     #Multiprocessing queue to hold data for processing.
     process_buffer = multiprocessing.Queue(maxsize=BUFFER_CAPACITY)
@@ -132,7 +152,10 @@ def run_multiprocessing():
     for process in multi_consumers:
         process.join()
 
+    execution_time = time.perf_counter() - start_time
+
     print("All multiprocessing workers finished.")
+    print(f"Multiprocessing execution time: {execution_time:.4f} seconds")
 
 
 def main():
